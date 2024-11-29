@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../repository/local_user_repository.dart';
-import '../widgets/text_input.dart';
-import '../widgets/custom_button.dart';
+import '../services/network_service.dart';
+import '../widgets/dialogs.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -10,27 +10,49 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _repository = LocalUserRepository();
+  final _networkService = NetworkService();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAutoLogin();
+  }
+
+  void _checkAutoLogin() async {
+    final sessionEmail = await _repository.getSession();
+    if (sessionEmail != null) {
+      final isConnected = await _networkService.isConnected();
+      if (!isConnected) {
+        showInfoDialog(context, 'You are offline, connect to the internet.');
+      }
+      Navigator.pushNamed(context, '/home');
+    }
+  }
 
   void _login() async {
     final email = _emailController.text;
     final password = _passwordController.text;
 
     final user = await _repository.getUserByEmail(email);
-
-    if (user == null) {
-      setState(() => _errorMessage = 'User not found.');
+    if (user == null || user.password != password) {
+      showInfoDialog(context, 'Invalid email or password.');
       return;
     }
 
-    if (user.password != password) {
-      setState(() => _errorMessage = 'Invalid password.');
+    final isConnected = await _networkService.isConnected();
+    if (!isConnected) {
+      showInfoDialog(context, 'No internet connection.');
       return;
     }
 
-    Navigator.pushNamed(context, '/home');
+    await _repository.saveSession(email);
+
+    // Показуємо повідомлення і після цього перенаправляємо
+    showInfoDialog(context, 'Login successful!', () {
+      Navigator.pushNamed(context, '/home');
+    });
   }
 
   @override
@@ -43,28 +65,27 @@ class _LoginScreenState extends State<LoginScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextInput(label: 'Email', controller: _emailController),
-            SizedBox(height: 16), // Відступ між інпутами
-            TextInput(
-              label: 'Password',
-              isPassword: true,
-              controller: _passwordController,
+            TextField(
+              controller: _emailController,
+              decoration: InputDecoration(labelText: 'Email'),
             ),
             SizedBox(height: 16),
-            if (_errorMessage != null)
-              Text(
-                _errorMessage!,
-                style: TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
-              ),
+            TextField(
+              controller: _passwordController,
+              decoration: InputDecoration(labelText: 'Password'),
+              obscureText: true,
+            ),
             SizedBox(height: 16),
-            CustomButton(text: 'Login', onPressed: _login),
+            ElevatedButton(
+              onPressed: _login,
+              child: Text('Login'),
+            ),
             SizedBox(height: 16),
             TextButton(
               onPressed: () {
                 Navigator.pushNamed(context, '/register');
               },
-              child: Text("Don't have an account? Register"),
+              child: Text('Don\'t have an account? Register'),
             ),
           ],
         ),

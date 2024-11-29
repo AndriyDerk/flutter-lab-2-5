@@ -16,22 +16,29 @@ class LocalUserRepository implements UserRepository {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString(email);
 
-    if (userJson == null) {
-      return null; // Якщо даних немає, повертаємо null
-    }
+    if (userJson == null) return null;
 
-    try {
-      final userMap = jsonDecode(userJson);
-      return User.fromMap(Map<String, String>.from(userMap));
-    } catch (e) {
-      // У разі помилки при декодуванні JSON, повертаємо null
-      print('Error decoding user data: $e');
-      return null;
-    }
+    final userMap = jsonDecode(userJson);
+    return User.fromMap(Map<String, String>.from(userMap));
   }
 
   @override
   Future<void> updateUser(User user) async {
-    await registerUser(user); // Просто перезаписуємо дані
+    await registerUser(user);
+  }
+
+  Future<void> saveSession(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('current_session', email);
+  }
+
+  Future<String?> getSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('current_session');
+  }
+
+  Future<void> clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.remove('current_session');
   }
 }
